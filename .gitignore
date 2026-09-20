@@ -1,0 +1,16 @@
+/FluidNC/
+/grbl-Mega-5X/
+
+.pio/
+
+
+__pycache__/
+*.py[cod]
+
+venv/
+.venv/
+
+build/
+*.hex
+
+.vscode/

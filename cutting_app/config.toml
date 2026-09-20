@@ -1,0 +1,160 @@
+# ============================================================
+#  Cutting Machine Control - Configuration
+#  Edit this file to change settings. No coding needed.
+#  Restart the app after changing anything in here.
+# ============================================================
+
+[paths]
+# Folder (relative to this app's folder, or a full path) where
+# ready-to-cut .gcode files live, and where newly generated files
+# will be saved.
+gcode_folder = "gcode_files"
+
+[serial]
+# Default baud rate for the cutting machine. The COM/serial port
+# itself is chosen from a dropdown in the app (it can change
+# depending on the USB port used), so it is not set here.
+baud_rate = 115200
+
+[machine]
+# G-code sent when the "Home Machine" button is pressed.
+homing_command = "$H"
+
+# Note: the "STOP" button does NOT use a G-code line - GRBL doesn't
+# have one for emergency stop. It sends GRBL's realtime soft-reset
+# byte directly (see serial_worker.py), which halts motion immediately
+# and clears the queue. Nothing to configure here for that.
+
+# ============================================================
+#  Cutting parameters shown in the app's table.
+#  Add / remove / edit entries here to change what the operator
+#  can type in, without touching any Python code.
+#
+#  name    -> MUST exactly match an ALL_CAPS variable name from
+#             circleGen6_2.py (see the full list below). The app
+#             sets that variable before generating.
+#  label   -> what the operator sees in the table
+#  default -> starting value shown in the table
+#  type    -> "float", "int", "bool", "text", or "list" (comma-separated
+#             numbers, e.g. "70, 50" -> [70, 50])
+#
+#  This is a starting set of the variables an operator is most
+#  likely to change per job. Every other ALL_CAPS variable in
+#  circleGen6_2.py (full list below) can be added the same way.
+# ============================================================
+
+[[variables.fields]]
+name = "PLANE_WIDTH"
+label = "Szerokość okna cięcia (mm)"
+default = 1000.0
+type = "float"
+
+[[variables.fields]]
+name = "PLANE_HEIGHT"
+label = "Wysokość okna cięcia (mm)"
+default = 100.0
+type = "float"
+
+[[variables.fields]]
+name = "CIRCLE_DIAMETER"
+label = "Średnica koła (mm)"
+default = 90.0
+type = "float"
+
+[[variables.fields]]
+name = "DIAMETER_OPTIONS"
+label = "Dostępne średnice wypełniające margines (mm, po przecinku)"
+default = "70, 50"
+type = "list"
+
+[[variables.fields]]
+name = "FEED_RATE"
+label = "Prędkość cięcia (mm/min)"
+default = 170
+type = "int"
+
+[[variables.fields]]
+name = "TRAVEL_RATE"
+label = "Prędkość przejazdu przez powietrze (mm/min)"
+default = 400
+type = "int"
+
+[[variables.fields]]
+name = "Z_FEED_RATE"
+label = "Prędkość osi Z (mm/min)"
+default = 150
+type = "int"
+
+[[variables.fields]]
+name = "MATERIAL_LENGTH"
+label = "Długość materaca (mm)"
+default = 2000.0
+type = "float"
+
+[[variables.fields]]
+name = "LEAVE_UNCUT"
+label = "Zostawić niepocięte (mm)"
+default = 300.0
+type = "float"
+
+
+
+[[variables.fields]]
+name = "CUTTING_TEMP"
+label = "Temperatura cięcia"
+default = 10.0
+type = "float"
+
+[[variables.fields]]
+name = "BURN_OFF_TEMP"
+label = "Temperatura wypalania"
+default = 25
+type = "float"
+
+[[variables.fields]]
+name = "TEMP_SET_TIME"
+label = "Czas ustawienia temperatury cięcia"
+default = 4
+type = "float"
+
+[[variables.fields]]
+name = "BURN_OFF_TIME"
+label = "Czas ustawienia temperatury wypalania"
+default = 10
+type = "float"
+
+[[variables.fields]]
+name = "COOL_DOWN_TIME"
+label = "Czas wychłodzenia się po wypalaniu"
+default = 8
+type = "float"
+
+[[variables.fields]]
+name = "COOL_DOWN_TIME_FROM_CUT_TEMP"
+label = "Czas wychłodzenia się po cięciu"
+default = 4
+type = "float"
+
+# ------------------------------------------------------------------
+# Reference: every ALL_CAPS variable that circleGen6_2.py exposes,
+# in case you want to add more rows above. Copy the name exactly.
+#
+#   PLANE_WIDTH, PLANE_HEIGHT, SQUISH_ROOM, CIRCLE_DIAMETER,
+#   SEVER_DISTANCE, CUT_OFF_MARGIN, CIRCLES_PER_CLEAN,
+#   FIRST_CIRCLE_PRECUT_ANGLE, ARC_STOP_ANGLE_FIRST_ROW,
+#   WASTE_CUT_LENGTH_FIRST_ROW, ARC_STOP_ANGLE, WASTE_CUT_LENGTH,
+#   ARC_OVERLAP_ANGLE, POP_OUT_STOP_ANGLE, GENERATE_POP_OUT,
+#   X_GAP, Y_GAP, Y_GAP_WINDOW, PATTERN, DIAMETER_OPTIONS,
+#   FEED_RATE, TRAVEL_RATE, ORIGIN_X, ORIGIN_Y, SINGLE_WINDOW_ONLY,
+#   RAIL_LENGTH, MATERIAL_LENGTH, LEAVE_UNCUT, Z_FEED_RATE,
+#   SAFETY_BURN_OFF_X_DISTANCE, SAFETY_BURN_OFF_Y_DISTANCE,
+#   CUTTING_TEMP, BURN_OFF_TEMP, TEMP_SET_TIME, BURN_OFF_TIME,
+#   COOL_DOWN_TIME, COOL_DOWN_TIME_FROM_CUT_TEMP,
+#   LEFT_CLEAN_REPEATS, RIGHT_CLEAN_REPEATS, Y_AXIS_MAX_LIMIT,
+#   USE_HARDWARE_HOMING
+#
+# type = "list" (used above for DIAMETER_OPTIONS) lets the operator
+# type several numbers separated by commas in the Value column, e.g.
+# "70, 50, 30" -> [70, 50, 30]. Use it for any other variable in
+# circleGen6_2.py that expects a list.
+# ------------------------------------------------------------------

@@ -1,0 +1,45 @@
+here are 2 files as your base, the circleGenSquish.py is just the newer version of the script. you should take logic only from this file, the circleGenCMPLX.py is just there because there are some useful comments that might not appear in the first file, you should deduct the high level workings using comments from both of these scripts and the logic from circleGenSquish.py
+
+
+
+alright, now this file i send you is working perfectly by itslef. now we need to ADD ONTO it to accomodate for the specific physical limits of the machine that actually cuts. there is homing logic to mechanical switches at the left, front corner of the cutting place. the machine goes to x0, y0 there is also z axis, it is a feeder, physically in the same line as Y axis. this feeder can push the material itself onto the cutting surface, and there the x and y axis take it from here, this way it can cut out a long piece of material there is also homing Z axis logic. so it also can return to its Z0
+
+ Y0
+
+|
+
+ \/Y+
+
+|
+
+|
+
+|
+
+|
+
+|
+
+| /\Z+
+
+|
+
+ Z0
+
+the Z0 and Y0 are like on the opposite sides, their positive coordinates go toward the middle. between them there is 2398,035mm, make that a variable to change.
+
+the material to cut has for now 1200x2000mm, consider these variables.
+
+
+
+now, from the Z0 this material will initially physically end at Z2000, because that how it is 'loaded'. this leaves +~120mm of unusable space for the cutting part because the Y axis can only go to Y280 without physically hitting something, but dont make a mistake of assuming that this is how far the circle cutting should happen, the Y280, is the absolute max limit, the cutting wire shouldnt even ever be there, because as seen in the files for an example the max height is 200mm. also this unusable space should be calculated not hard coded as the calculation because 2398,035mm can change.
+
+so now i need you to add logic to this gcode generator so that on the first 2-row it tries to cut, the material needs to move through this unusable space (right to where Y280 is) + however much is needed so that the ledge of the foam block reaches where Y10 would be, in this example: the Z axis should move to Z388.035, this means that with a material length of 2000mm, the front face/ledge of the foam block will be in the same place as the wire would be if the wire was at Y10. this distance between Y0 and Y10 will be called 'safety distance', that is configurable (this will have to be somehow linked or even be the ORIGIN_Y variable).
+
+ after that, this is the part where much doesnt change from the exsiting code. 2 rows of circles will be cut, after cutting the circles with existing logic already in the files. the wire needs to go to home of X0, Y0 to make place for the new portion of material being pushed onto the cutting area. at the start of each new job, the machine should home itself. and for every time it has to 0,0 it could either be a home action $HX $HY or just G1 X0 Y). make that a bool variable to choose
+
+only the first cutting is diffrent from the rest, as now the material to cut is already sitting partially in the cutting area or at least not further then this Y280 so now the feeder needs to push however much was cut off in the form of circles back to the safety distance from the wire of, in this example, Y10. dont make a mistake of thinking that the whole 200mm(PLANE_HEIGHT) will need to be pushed into the cutting area, the distance to push here should be calculated from the most front point which the hot wire will go through to the most back point that the wire will pass through. eg in the gcode generated from the circleGenSquish.py the most front point of the cutting takes place at Y10, and the most back point is at Y180. so calculating from that the material  should be pushed 180-10=170mm.
+
+then it again cuts of the 2 rows of circles, comes back home for X and Y and again the material is pushed. over and over until the material runs out.
+
+ remember that the pushing feeder motor is the Z axis

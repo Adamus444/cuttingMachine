@@ -1,0 +1,143 @@
+"""
+Generate a G-code file for a hot-wire (or any always-on XY) cutter that
+cuts out a variable number of circles, arranged as efficiently as possible.
+
+"Efficient" here means two separate things, both handled automatically:
+
+1. MATERIAL-EFFICIENT LAYOUT
+   Circles are packed using a hexagonal (honeycomb) arrangement - rows of
+   circles offset by half a diameter from the row above/below. This is the
+   tightest possible way to pack same-size circles in a plane, so it uses
+   less sheet area than a plain square grid.
+
+2. PATH-EFFICIENT CUTTING ORDER
+   The wire cuts row by row in a serpentine (boustrophedon) order: left to
+   right along one row, right to left along the next, and so on. Combined
+   with the hex packing this keeps every move from one circle to the next
+   as short as possible - there's no jumping back across the sheet.
+
+Each circle is cut as a single full-circle arc (G2), starting and ending
+at the same point (its rightmost point), so there's no separate "closing"
+move needed.
+
+Adjust the VARIABLES section below to change:
+- how many circles
+- circle diameter
+- gap between circles
+- feed rate (cutting speed) and travel speed (between circles)
+- origin offset
+
+Run:
+    python circle_pack_gcode.py
+Output:
+    circles.gcode
+"""
+
+import math
+
+# ---------------- VARIABLES ----------------
+NUM_CIRCLES = 12          # how many circles to cut
+CIRCLE_DIAMETER = 20.0    # mm
+SPACING = 4.0             # mm, gap left between adjacent circles
+
+FEED_RATE = 300           # mm/min, speed while cutting a circle
+TRAVEL_RATE = 800         # mm/min, speed while moving between circles (wire still hot)
+
+ORIGIN_X = 0.0            # mm, X offset for the whole layout
+ORIGIN_Y = 0.0            # mm, Y offset for the whole layout
+
+OUTPUT_FILE = "circles.gcode"
+# --------------------------------------------
+
+
+def pack_circles(n, diameter, spacing):
+    """
+    Return a list of (x, y) circle-center positions, laid out in a
+    hexagonal grid, as close to a square overall shape as possible.
+    Positions are relative to (0, 0) at the center of the first circle.
+    """
+    pitch = diameter + spacing               # center-to-center distance within a row
+    row_height = pitch * math.sqrt(3) / 2     # vertical distance between rows in hex packing
+
+    cols = max(1, math.ceil(math.sqrt(n)))    # aim for a roughly square layout
+    rows = math.ceil(n / cols)
+
+    positions = []
+    placed = 0
+    for row in range(rows):
+        row_offset = (pitch / 2) if (row % 2 == 1) else 0.0
+        remaining = n - placed
+        this_row_cols = min(cols, remaining)
+        for col in range(this_row_cols):
+            x = col * pitch + row_offset
+            y = row * row_height
+            positions.append((x, y))
+            placed += 1
+        if placed >= n:
+            break
+
+    return positions
+
+
+def order_serpentine(positions, diameter, spacing):
+    """
+    Group circle positions back into rows (by y value) and reverse every
+    other row's order, so the cutting path zig-zags instead of jumping
+    back to the start of each row.
+    """
+    row_height = (diameter + spacing) * math.sqrt(3) / 2
+    rows = {}
+    for x, y in positions:
+        row_idx = round(y / row_height)
+        rows.setdefault(row_idx, []).append((x, y))
+
+    ordered = []
+    for row_idx in sorted(rows.keys()):
+        row_points = sorted(rows[row_idx], key=lambda p: p[0])
+        if row_idx % 2 == 1:
+            row_points.reverse()
+        ordered.extend(row_points)
+
+    return ordered
+
+
+def generate_gcode():
+    radius = CIRCLE_DIAMETER / 2
+    raw_positions = pack_circles(NUM_CIRCLES, CIRCLE_DIAMETER, SPACING)
+    ordered_positions = order_serpentine(raw_positions, CIRCLE_DIAMETER, SPACING)
+
+    lines = []
+    lines.append("; Efficient circle-packed cutting pattern")
+    lines.append("; 2D hot-wire cutting, X/Y only - hexagonal packing + serpentine order")
+    lines.append("G21 ; units = mm")
+    lines.append("G90 ; absolute positioning")
+    lines.append("G17 ; XY plane for arcs")
+
+    first = True
+    for (cx, cy) in ordered_positions:
+        # Convert layout-local coordinates to absolute machine coordinates.
+        # Start/end point of the circle = its rightmost point.
+        sx = ORIGIN_X + cx + radius
+        sy = ORIGIN_Y + cy
+
+        if first:
+            lines.append(f"G1 X{sx:.3f} Y{sy:.3f} F{TRAVEL_RATE} ; move to first circle")
+            first = False
+        else:
+            lines.append(f"G1 X{sx:.3f} Y{sy:.3f} F{TRAVEL_RATE} ; travel to next circle")
+
+        # Full circle: G2 (clockwise) back to the same start point.
+        # I/J = offset from start point to circle center.
+        lines.append(f"G2 X{sx:.3f} Y{sy:.3f} I{-radius:.3f} J0.000 F{FEED_RATE} ; cut circle")
+
+    lines.append("M2 ; end of program")
+    return "\n".join(lines), len(ordered_positions)
+
+
+if __name__ == "__main__":
+    gcode, count = generate_gcode()
+    with open(OUTPUT_FILE, "w") as f:
+        f.write(gcode)
+    print(f"G-code written to {OUTPUT_FILE}")
+    print(f"{count} circles, diameter {CIRCLE_DIAMETER}mm, spacing {SPACING}mm, "
+          f"feed rate {FEED_RATE}mm/min")

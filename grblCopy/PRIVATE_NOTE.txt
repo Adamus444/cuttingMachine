@@ -1,0 +1,2 @@
+this is just a copy of grbl that i changed to make it 2 axis and then tried to revert it back to 3 axis with Z axis as a feeder. So use this only as a cheat code for setting up config and not necessarily as viable, compiliable source for firmware.
+Instead im gonna download a fresh clone of grbl, you that instead

@@ -1,0 +1,504 @@
+"""
+Derived from circleGenSquish.py
+
+Generate a G-code file for a hot-wire (2D, X/Y only) cutter that cuts
+circles out of material fed in from a roll/stock sheet by a Z-axis
+feeder, using a grid or hex layout of a main circle size - AND tries to
+fill the leftover margin at the start and end of every row with a
+smaller circle instead of wasting that strip of material.
+
+Everything about how a SINGLE row (or a single "plane" of rows) is laid
+out and cut is unchanged from circleGenSquish.py: segments, margin
+filling, SQUISH_ROOM insets on X, and the SEVER_DISTANCE safety cut.
+What's new here is the MACHINE / MATERIAL-HANDLING layer on top of that,
+to deal with the fact that the material is far longer than the cutting
+area and has to be fed in by a physical pusher.
+
+MACHINE LAYOUT
+  The X/Y hot-wire gantry cuts in a normal 2D plane, same as before.
+  The Z axis is a FEEDER, not a cutting axis - it physically pushes the
+  material stock onto the cutting bed. The feeder shares its line of
+  travel with the Y axis: think of one straight rail with a homing
+  switch at each end.
+
+    Y0                     <- Y axis home switch (front of cutting bed)
+    |
+    v Y+                   <- Y increases toward the middle
+    |
+    |
+    ^ Z+                   <- Z increases toward the middle
+    |
+    Z0                     <- Z axis (feeder) home switch
+
+  Y0 and Z0 are Z_Y_AXIS_OFFSET mm apart (the true, empty-rail distance
+  between the two homing switches - this has to be bigger than
+  MATERIAL_LENGTH, or the stock physically couldn't be loaded between
+  them), and Y+/Z+ both point toward each other (toward the middle of
+  that span). The wire's Y travel is hard-limited to Y_MAX (an absolute
+  mechanical limit - the wire should NEVER actually be commanded that
+  far out; real cutting happens in a much smaller window near Y0,
+  governed by PLANE_HEIGHT).
+
+  The stock is loaded fully extended: the feeder grips its TRAILING
+  edge at its home position (Z0, i.e. Z=0), so the LEADING edge sits at
+  Z=MATERIAL_LENGTH before any feed motion happens. Measured the other
+  way (distance from Y0, which is what matters for reaching it with the
+  wire), that's:
+
+      initial_s = Z_Y_AXIS_OFFSET - MATERIAL_LENGTH
+
+  If initial_s is still further out than Y_MAX, there's a stretch of
+  feed travel that just pushes the (still unreachable) leading edge
+  closer, before the wire can usefully reach it at all:
+
+      UNUSABLE_SPACE = initial_s - Y_MAX
+                      = (Z_Y_AXIS_OFFSET - MATERIAL_LENGTH) - Y_MAX
+
+  Both are NOT hard-coded - they're derived from Z_Y_AXIS_OFFSET,
+  MATERIAL_LENGTH and Y_MAX so they stay correct if any of those
+  machine/material constants change.
+
+FEED / CUT CYCLE
+  1. FIRST feed only: push the material forward by
+       UNUSABLE_SPACE + ORIGIN_Y
+     ORIGIN_Y doubles as the "safety distance" you described (the gap
+     between the Y0 switch and where the wire is actually allowed to
+     start cutting, e.g. Y10) - linking the two means there's only one
+     number to configure, and the feed math and the cutting math always
+     agree on where "the front of the cutting window" is.
+  2. Cut the row layout for one cutting window (PLANE_HEIGHT tall, same
+     compute_rows/compute_row_segments logic as circleGenSquish.py).
+     Because ORIGIN_Y, PLANE_HEIGHT, SQUISH_ROOM etc. never change, this
+     window - and the row layout inside it - is IDENTICAL every single
+     cycle. Only the material underneath is different each time.
+  3. Send the wire home (X0, Y0) to get it clear of the bed.
+  4. Push the material forward again, this time by exactly the span the
+     wire just cut through (front-most point the wire reached to
+     back-most point it reached, which includes each circle's radius,
+     not just the row centerline). That's precisely enough fresh,
+     never-cut material to fill the window for the next cycle.
+  5. Repeat from step 2 until the material's TRAILING edge would end up
+     within SQUISH_ROOM of the deepest point the wire cuts to - i.e.
+     there's no longer a safe amount of uncut stock left behind the cut
+     line to support another full cycle.
+
+Adjust the VARIABLES section below.
+
+Run:
+    python circleGenFeeder.py
+Output:
+    circles.gcode
+"""
+
+import math
+
+# ---------------- VARIABLES ----------------
+PLANE_WIDTH = 1200.0        # mm, width of the material to cut from (X direction)
+PLANE_HEIGHT = 200.0        # mm, height of ONE cutting window (Y direction) - how
+                            # much depth the wire actually cuts into per feed cycle.
+                            # NOT the same thing as Y_MAX below.
+
+SQUISH_ROOM = 2.0          # mm, the material can squish/stretch/shift a little.
+                            # Circles are inset SQUISH_ROOM from every nominal
+                            # edge so they're never partial. Straight waste
+                            # cuts at the left/right edges are driven
+                            # SQUISH_ROOM past the nominal edge so they fully
+                            # separate the block regardless. Also reserved as
+                            # a safety inset at the very tail end of the sheet
+                            # (MATERIAL_LENGTH) so the last cycle isn't cut
+                            # flush with an uncertain trailing edge.
+CIRCLE_DIAMETER = 90.0     # mm, main circle size used for the grid/hex layout
+SEVER_DISTANCE = 2.0       # mm, the circles could stay hanging by a thin, uncut piece of material, make sure to cut that, just in case
+
+PATTERN = "hex"           # "grid" or "hex" - layout used for the main circles
+
+DIAMETER_OPTIONS = [70, 50.0, 30.0]
+# List of acceptable diameters to check against when a margin has leftover
+# space. The script picks the LARGEST one from this list that still fits.
+# Include CIRCLE_DIAMETER in here too if you want it considered for
+# margins as well as the main layout (it usually won't fit there, but
+# there's no harm including it).
+
+FEED_RATE = 300            # mm/min, speed while cutting
+TRAVEL_RATE = 500          # mm/min, speed while travelling (non-productive moves)
+PUSH_RATE = 500             # mm/min, speed of the Z-axis feeder while pushing material
+
+ORIGIN_X = 10.0             # mm, X offset of the plane's bottom-left corner
+ORIGIN_Y = 10.0             # mm, Y offset of the cutting window's front edge.
+                            # Also doubles as the feeder "safety distance":
+                            # how far past the Y0 switch the material's front
+                            # edge is parked before the wire is allowed to
+                            # start cutting.
+
+# --- machine / material-handling constants (new) ---
+Z_Y_AXIS_OFFSET = 398.035   # mm, distance between the Y0 and Z0 homing switches.
+                            # Y+ and Z+ both point toward the middle of this span.
+Y_MAX = 280.0               # mm, absolute hard travel limit of the Y axis. The
+                            # wire should never actually be commanded this far -
+                            # real cutting happens within PLANE_HEIGHT of ORIGIN_Y.
+MATERIAL_LENGTH = 2000.0    # mm, total length of the material sheet along the
+                            # feed (Z) direction.
+
+OUTPUT_FILE = "circles.gcode"
+# --------------------------------------------
+
+
+def best_fit_diameter(diameters, available):
+    """Largest diameter from the list that fits within `available` space."""
+    candidates = [d for d in diameters if d <= available + 1e-9]
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def compute_rows(plane_height, diameter, pattern):
+    """Return a list of (row_y, is_offset) for every row that fits vertically."""
+    radius = diameter / 2
+
+    if pattern == "grid":
+        row_height = diameter
+    elif pattern == "hex":
+        row_height = diameter * math.sqrt(3) / 2
+    else:
+        raise ValueError("PATTERN must be 'grid' or 'hex'")
+
+    rows = []
+    i = 0
+    while True:
+        y = radius + i * row_height
+        if y + radius > plane_height + 1e-9:
+            break
+        is_offset = (pattern == "hex" and i % 2 == 1)
+        rows.append((y, is_offset))
+        i += 1
+
+    return rows
+
+
+def compute_row_segments(plane_width, main_diameter, is_offset, diameter_options):
+    """
+    Build the left-to-right list of segments for one row.
+    Each segment is a tuple:
+      ("straight", x_start, x_end)
+      ("circle",   x_start, x_end, diameter)
+    """
+    radius = main_diameter / 2
+    left_margin = radius if is_offset else 0.0
+
+    available = plane_width - left_margin
+    circle_count = max(0, math.floor(available / main_diameter + 1e-9))
+    main_end = left_margin + circle_count * main_diameter
+    right_margin = plane_width - main_end
+
+    segments = []
+    x = 0.0
+
+    # --- leading margin: try to fill with the largest diameter that fits ---
+    fill_d = best_fit_diameter(diameter_options, left_margin)
+    if fill_d:
+        waste = left_margin - fill_d
+        if waste > 1e-9:
+            segments.append(("straight", x, x + waste))
+            x += waste
+        segments.append(("circle", x, x + fill_d, fill_d))
+        x += fill_d
+    else:
+        segments.append(("straight", x, x + left_margin))
+        x += left_margin
+
+    # --- main circles ---
+    for _ in range(circle_count):
+        segments.append(("circle", x, x + main_diameter, main_diameter))
+        x += main_diameter
+
+    # --- trailing margin: try to fill with the largest diameter that fits ---
+    fill_d = best_fit_diameter(diameter_options, right_margin)
+    if fill_d:
+        segments.append(("circle", x, x + fill_d, fill_d))
+        x += fill_d
+        waste = plane_width - x
+        if waste > 1e-9:
+            segments.append(("straight", x, x + waste))
+            x = plane_width
+    else:
+        segments.append(("straight", x, plane_width))
+        x = plane_width
+
+    return segments
+
+
+def place_segments_in_plane(segments, plane_width, squish_room):
+    """
+    Take row segments that were planned on the shrunk "effective" width
+    (0 .. plane_width - 2*squish_room) and place them into real plane
+    coordinates (0 .. plane_width), by:
+
+      1. Shifting everything right by squish_room, so every circle ends
+         up at least squish_room away from the real X=0 / X=plane_width
+         edges (perfect circles, no missing chunk).
+      2. Extending whatever straight segment borders each outer edge so
+         it runs squish_room PAST the nominal edge instead of stopping
+         on it - this is the cut that severs the block from the scrap
+         around it, so it needs to reach the real edge even if the real
+         edge is up to squish_room further out than nominal. If a side
+         has no straight segment to extend (e.g. a filler circle landed
+         flush on x=0), a small straight overcut segment is inserted so
+         that buffer strip still gets fully cut through.
+    """
+    shifted = []
+    for seg in segments:
+        if seg[0] == "straight":
+            shifted.append(("straight", seg[1] + squish_room, seg[2] + squish_room))
+        else:
+            _, x_start, x_end, d = seg
+            shifted.append(("circle", x_start + squish_room, x_end + squish_room, d))
+
+    if not shifted:
+        return shifted
+
+    # --- left edge: reach to -squish_room instead of stopping at 0 ---
+    left_target = -squish_room
+    if shifted[0][0] == "straight":
+        shifted[0] = ("straight", left_target, shifted[0][2])
+    elif shifted[0][1] > left_target + 1e-9:
+        shifted.insert(0, ("straight", left_target, shifted[0][1]))
+
+    # --- right edge: reach to plane_width + squish_room instead of plane_width ---
+    right_target = plane_width + squish_room
+    if shifted[-1][0] == "straight":
+        shifted[-1] = ("straight", shifted[-1][1], right_target)
+    elif shifted[-1][2] < right_target - 1e-9:
+        shifted.append(("straight", shifted[-1][2], right_target))
+
+    return shifted
+
+
+def row_has_circles(segments):
+    return any(seg[0] == "circle" for seg in segments)
+
+
+def emit_row(lines, row_y, segments):
+    """Append the G-code for one full row sweep (there and back)."""
+    abs_y = ORIGIN_Y + row_y
+    row_start_x = ORIGIN_X + segments[0][1]  # may be < ORIGIN_X due to left overcut
+
+    # Travel to the (possibly squish-overcut) left edge of the row
+    lines.append(f"G1 X{row_start_x:.3f} Y{abs_y:.3f} F{TRAVEL_RATE} ; travel to left edge of row")
+
+    # Forward sweep: cut every segment, left to right
+    for seg in segments:
+        if seg[0] == "straight":
+            x_end = ORIGIN_X + seg[2]
+            lines.append(f"G1 X{x_end:.3f} Y{abs_y:.3f} F{FEED_RATE} ; cut straight (margin/gap)")
+        else:
+            _, x_start, x_end, d = seg
+            r = d / 2
+            lines.append(
+                f"G3 X{ORIGIN_X + x_end:.3f} Y{abs_y:.3f} I{r:.3f} J0.000 F{FEED_RATE} "
+                f"; cut lower half of circle d={d:g}"
+            )
+
+    # Reverse sweep: travel back over straights, cut upper half of every circle
+    for seg in reversed(segments):
+        if seg[0] == "straight":
+            x_start = ORIGIN_X + seg[1]
+            lines.append(f"G1 X{x_start:.3f} Y{abs_y:.3f} F{TRAVEL_RATE} ; travel back over margin/gap")
+        else:
+            _, x_start, x_end, d = seg
+            r = d / 2
+            lines.append(
+                f"G3 X{ORIGIN_X + x_start:.3f} Y{abs_y:.3f} I{-r:.3f} J0.000 F{FEED_RATE} "
+                f"; cut upper half of circle d={d:g}"
+            )
+
+            # make an additional straight cut to fully sever the circle, just in case
+            lines.append(
+                f"G1 X{ORIGIN_X + x_start:.3f} Y{(abs_y - SEVER_DISTANCE):.3f} F{FEED_RATE} "
+                f"; sever the potentially still connected circle"
+            )
+
+            # go back from the severing cut
+            lines.append(
+                f"G1 X{ORIGIN_X + x_start:.3f} Y{(abs_y):.3f} F{TRAVEL_RATE} "
+                f"; going back from the severing cut"
+            )
+
+    # Explicit normalize move back to the row's start (row should already be
+    # here, but this keeps every row ending at a known, identical position -
+    # also doubles as the "turn 90 degrees to the next row" transition move).
+    lines.append(f"G1 X{row_start_x:.3f} Y{abs_y:.3f} F{TRAVEL_RATE} ; move to left edge before next row")
+
+
+def compute_batch_extent(row_plan):
+    """
+    Given the fixed set of rows/segments that get cut every feed cycle,
+    find the most-front and most-back machine Y coordinate the wire
+    actually passes through while cutting.
+
+    NOTE: a circle's G-code target Y is its centerline (abs_y) - the
+    actual wire path bulges out to abs_y - r (lower sweep) and
+    abs_y + r (upper sweep). So the true front/back extent of a cycle
+    has to account for each row's largest circle radius, not just the
+    row centerlines.
+    """
+    min_y = None
+    max_y = None
+    for actual_row_y, segments in row_plan:
+        abs_y = ORIGIN_Y + actual_row_y
+        radii = [seg[3] / 2.0 for seg in segments if seg[0] == "circle"]
+        if not radii:
+            continue
+        r = max(radii)
+        front = abs_y - r
+        back = abs_y + r
+        if min_y is None or front < min_y:
+            min_y = front
+        if max_y is None or back > max_y:
+            max_y = back
+
+    if min_y is None:
+        raise ValueError(
+            "No circles are cut in a single feed cycle - check CIRCLE_DIAMETER / "
+            "PLANE_HEIGHT / PLANE_WIDTH / DIAMETER_OPTIONS."
+        )
+    return min_y, max_y
+
+
+def generate_gcode():
+    effective_width = PLANE_WIDTH - 2 * SQUISH_ROOM
+    effective_height = PLANE_HEIGHT - 2 * SQUISH_ROOM
+
+    if effective_width <= 0 or effective_height <= 0:
+        raise ValueError(
+            "SQUISH_ROOM is too large for the given PLANE_WIDTH/PLANE_HEIGHT "
+            "- there's no usable area left to place circles in."
+        )
+    if ORIGIN_X < SQUISH_ROOM:
+        print(
+            f"WARNING: ORIGIN_X ({ORIGIN_X}) is less than SQUISH_ROOM "
+            f"({SQUISH_ROOM}); left-edge overcut moves will go to a negative "
+            f"machine X coordinate."
+        )
+
+    unusable_space = Z_Y_AXIS_OFFSET - Y_MAX
+    if unusable_space < 0:
+        raise ValueError(
+            "Y_MAX is larger than Z_Y_AXIS_OFFSET - that would mean the Y axis "
+            "could reach past the Z0 switch, which shouldn't be physically "
+            "possible. Double check these two values."
+        )
+    if ORIGIN_Y + PLANE_HEIGHT > Y_MAX + 1e-9:
+        print(
+            f"WARNING: ORIGIN_Y + PLANE_HEIGHT ({ORIGIN_Y + PLANE_HEIGHT:g}) exceeds "
+            f"Y_MAX ({Y_MAX:g}) - the cutting window reaches further than the "
+            f"machine's absolute Y travel limit."
+        )
+
+    # The row/segment layout is IDENTICAL every feed cycle: the wire always
+    # cuts in the same fixed machine-Y window near the front of the machine
+    # (ORIGIN_Y .. ORIGIN_Y + PLANE_HEIGHT); it's the material underneath
+    # that changes between cycles, courtesy of the Z-axis feeder. So it's
+    # computed once and reused.
+    rows = compute_rows(effective_height, CIRCLE_DIAMETER, PATTERN)
+
+    row_plan = []
+    for row_y, is_offset in rows:
+        segments = compute_row_segments(effective_width, CIRCLE_DIAMETER, is_offset, DIAMETER_OPTIONS)
+        segments = place_segments_in_plane(segments, PLANE_WIDTH, SQUISH_ROOM)
+        actual_row_y = row_y + SQUISH_ROOM
+        if row_has_circles(segments):
+            row_plan.append((actual_row_y, segments))
+
+    if not row_plan:
+        raise ValueError(
+            "No circles fit in a single feed cycle with the current "
+            "PLANE_WIDTH / PLANE_HEIGHT / CIRCLE_DIAMETER / SQUISH_ROOM settings."
+        )
+
+    min_y, max_y = compute_batch_extent(row_plan)
+    batch_span = max_y - min_y  # front-to-back reach of one cycle; also the push distance
+    circles_per_cycle = sum(1 for _, segs in row_plan for s in segs if s[0] == "circle")
+
+    lines = []
+    lines.append("; Circle-packed cutting pattern with margin-filling and material feeding")
+    lines.append(f"; 2D hot-wire cutting, X/Y only - {PATTERN} layout, row-sweep order")
+    lines.append(f"; SQUISH_ROOM={SQUISH_ROOM}mm - circles inset from nominal edges, "
+                  f"edge straight cuts overcut past nominal edges")
+    lines.append(f"; Feeder (Z axis) shares its line of travel with the Y axis; the two "
+                  f"homing switches are Z_Y_AXIS_OFFSET={Z_Y_AXIS_OFFSET:g}mm apart, Y+ "
+                  f"and Z+ both pointing toward the middle. Y_MAX={Y_MAX:g}mm is the hard "
+                  f"Y travel limit, leaving UNUSABLE_SPACE={unusable_space:.3f}mm of feed "
+                  f"travel before the wire can reach the material at all.")
+    lines.append(f"; Every feed cycle cuts the same {len(row_plan)}-row layout "
+                  f"({circles_per_cycle} circles) in the fixed window "
+                  f"Y{ORIGIN_Y:.3f}-Y{(ORIGIN_Y + PLANE_HEIGHT):.3f}; the wire's actual "
+                  f"front/back reach is Y{min_y:.3f}-Y{max_y:.3f} "
+                  f"(span {batch_span:.3f}mm), which is how far the feeder pushes fresh "
+                  f"material in after each cycle.")
+    lines.append("G21 ; units = mm")
+    lines.append("G90 ; absolute positioning")
+    lines.append("G17 ; XY plane for arcs")
+    lines.append(f"G1 X0.000 Y0.000 F{TRAVEL_RATE} ; wire clear at home before the first feed")
+
+    z_position = 0.0
+    material_fed = 0.0
+    total_circles = 0
+    cycle = 0
+
+    while True:
+        if cycle == 0:
+            feed_amount = unusable_space + ORIGIN_Y
+            feed_note = "clear unusable space, then reach safety distance"
+        else:
+            feed_amount = batch_span
+            feed_note = "push cut material clear, bring in fresh material"
+
+        # Stop if there isn't enough material left in the sheet for another
+        # full, safe cutting cycle - reserving SQUISH_ROOM at the very tail
+        # end of the sheet, mirroring the inset used at its leading edge.
+        if material_fed + feed_amount + SQUISH_ROOM > MATERIAL_LENGTH + 1e-6:
+            lines.append(
+                f"; {MATERIAL_LENGTH - material_fed:.3f}mm of material left - not enough "
+                f"for another full feed cycle, stopping"
+            )
+            break
+
+        z_position += feed_amount
+        material_fed += feed_amount
+        lines.append(
+            f"G1 Z{z_position:.3f} F{PUSH_RATE} ; cycle {cycle + 1}: {feed_note} "
+            f"({feed_amount:.3f}mm)"
+        )
+
+        for actual_row_y, segments in row_plan:
+            emit_row(lines, actual_row_y, segments)
+        total_circles += circles_per_cycle
+
+        lines.append(
+            f"G1 X0.000 Y0.000 F{TRAVEL_RATE} ; cycle {cycle + 1} done - return to home, "
+            f"clear the area for the next feed"
+        )
+
+        cycle += 1
+
+    if cycle == 0:
+        raise ValueError(
+            "MATERIAL_LENGTH is too short to even complete a single feed cycle "
+            "given UNUSABLE_SPACE, ORIGIN_Y and the cutting window - nothing was cut."
+        )
+
+    lines.append("M2 ; end of program")
+
+    return "\n".join(lines), total_circles, cycle, batch_span, unusable_space
+
+
+if __name__ == "__main__":
+    gcode, total_circles, cycles, batch_span, unusable_space = generate_gcode()
+    with open(OUTPUT_FILE, "w") as f:
+        f.write(gcode)
+    print(f"G-code written to {OUTPUT_FILE}")
+    print(f"{PATTERN} layout: {total_circles} circles across {cycles} feed cycles, "
+          f"main diameter {CIRCLE_DIAMETER}mm, sheet {PLANE_WIDTH}x{MATERIAL_LENGTH}mm")
+    print(f"Diameter options checked for margins: {DIAMETER_OPTIONS}")
+    print(f"Unusable feed space before the wire can reach material: {unusable_space:.3f}mm")
+    print(f"Feed distance per cycle after the first: {batch_span:.3f}mm")
