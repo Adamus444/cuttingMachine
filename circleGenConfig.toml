@@ -1,60 +1,94 @@
 [settings]
 
-PLANE_WIDTH = 1000.0
-PLANE_HEIGHT = 100.0
-SQUISH_ROOM = 2.0
-CIRCLE_DIAMETER = 90.0
+BLOCK_WIDTH = 1000.0        # mm, full width of the foam block (X)
+ROWS_PER_WINDOW = 1         # rows of circles cut between feeder pushes
+ 
+SQUISH_ROOM = 2.0           # mm, material movement tolerance; applied at edges/seams
 
-SEVER_DISTANCE = 0.0
-CUT_OFF_MARGIN = 40.0
-CIRCLES_PER_CLEAN = 4
+CIRCLE_DIAMETER = 90.0      # mm, main circle diameter
+
+SEVER_DISTANCE = 0.0        # mm, extra cut to fully separate circles from waste
+
+CUT_OFF_MARGIN = 40.0       # mm, extra length for the final right-edge cut
+
+CIRCLES_PER_CLEAN = 4       # circles per sweep before an in-place wire cleaning
+                            # Set 0 to disable periodic cleaning
 
 FIRST_CIRCLE_PRECUT_ANGLE = 90.0
-CIRCLE_PRECUT_ANGLE = 35.0
+                            # degrees, upper-half precut on the first circle of each row
+                            # Set 0 to disable
+
+CIRCLE_PRECUT_ANGLE = 35.0  # degrees, precut angle for subsequent circles in each row
 
 ARC_STOP_ANGLE_FIRST_ROW = 90.0
+                            # degrees, waste-severing detour point on the first row
+
 WASTE_CUT_LENGTH_FIRST_ROW = 25.0
+                            # mm, waste-severing detour length on the first row
 
-ARC_STOP_ANGLE = 135.0
-WASTE_CUT_LENGTH = 15.0
-ARC_OVERLAP_ANGLE = 10.0
+ARC_STOP_ANGLE = 135.0      # degrees, waste-severing detour point on other rows
 
-POP_OUT_STOP_ANGLE = 30
-GENERATE_POP_OUT = false
+WASTE_CUT_LENGTH = 15.0     # mm, waste-severing detour length on other rows
 
-X_GAP = 0.0
-Y_GAP = 2.0
-Y_GAP_WINDOW = 2.0
+ARC_OVERLAP_ANGLE = 10.0    # degrees, arc overlap after the waste-severing detour
 
-PATTERN = "hex"
+POP_OUT_STOP_ANGLE = 30     # degrees, angle where the circle pop-out stops
+GENERATE_POP_OUT = false    # enable once-per-row circle pop-out pass
+
+X_GAP = 0.0                 # mm, extra clearance between main circles
+
+Y_GAP = 2.0                 # mm, extra row-to-row spacing
+
+Y_GAP_WINDOW = 2.0          # mm, extra clearance at each window seam
+
 DIAMETER_OPTIONS = [80, 70, 60, 50]
+                            # mm, fallback diameters for row-end margin fillers
 
-FEED_RATE = 170
-TRAVEL_RATE = 600
+FEED_RATE = 170             # mm/min, cutting speed
+TRAVEL_RATE = 600           # mm/min, non-cutting travel speed
 
-ORIGIN_X = 10.0
-ORIGIN_Y = 160.0
+ORIGIN_X = 10.0             # mm, window bottom-left X offset
+ORIGIN_Y = 160.0            # mm, window bottom-left Y offset
+
 OUTPUT_FILE = "circles.gcode"
 
-SINGLE_WINDOW_ONLY = false
 
-RAIL_LENGTH = 2131.646
-MATERIAL_LENGTH = 1540.0
-LEAVE_UNCUT = 30
-Z_FEED_RATE = 200
+SINGLE_WINDOW_ONLY = false
+                            # Generate one window only; disables feeder moves and repeated homing
+
+RAIL_LENGTH = 2131.646      # mm, distance between Y0 and Z0 home switches
+
+MATERIAL_LENGTH = 475.0    # mm, total stock length
+
+LEAVE_UNCUT = 30             # mm, stop feeding when this much material remains
+
+Z_FEED_RATE = 200            # mm/min, feeder speed
+
 
 SAFETY_BURN_OFF_X_DISTANCE = 1050.0
+                            # mm, X position used for the regular right-side wire burn-off
+
 SAFETY_BURN_OFF_Y_DISTANCE = 50.0
+                            # mm, Y distance moved during wire burn-off
 
-CUTTING_TEMP = 10
-BURN_OFF_TEMP = 26
-TEMP_SET_TIME = 4
-BURN_OFF_TIME = 10
-COOL_DOWN_TIME = 8
+
+CUTTING_TEMP = 10            # %, temperature setting while cutting
+BURN_OFF_TEMP = 26           # %, temperature setting for coating burn-off
+
+TEMP_SET_TIME = 4            # s, wait for temperature to reach target
+BURN_OFF_TIME = 10           # s, burn-off dwell time
+
+COOL_DOWN_TIME = 8            # s, general cool-down time
 COOL_DOWN_TIME_FROM_CUT_TEMP = 4
+                            # s, cool-down time when switching from cutting temperature
 
-LEFT_CLEAN_REPEATS = 0
-RIGHT_CLEAN_REPEATS = 0
 
-Y_AXIS_MAX_LIMIT = 280.0
-USE_HARDWARE_HOMING = false
+LEFT_CLEAN_REPEATS = 0       # number of cleaning passes on the left
+RIGHT_CLEAN_REPEATS = 0      # number of cleaning passes on the right
+
+
+Y_AXIS_MAX_LIMIT = 280.0     # mm, absolute mechanical Y travel limit
+
+#                RELICTS FOR COMPATIBILITY
+USE_HARDWARE_HOMING = false   # use machine hardware homing instead of software positioning 
+PATTERN = "hex"             # "grid" or "hex", main circle layout
