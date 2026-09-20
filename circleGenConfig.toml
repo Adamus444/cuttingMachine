@@ -89,6 +89,8 @@ RIGHT_CLEAN_REPEATS = 0      # number of cleaning passes on the right
 Y_AXIS_MAX_LIMIT = 280.0     # mm, absolute mechanical Y travel limit
                              # doubles as a limit/parameter controlling the last push of Z axis feeder
 
-#                RELICTS FOR COMPATIBILITY
+#-------------------RELICTS FOR COMPATIBILITY-------------------------------------
 USE_HARDWARE_HOMING = false   # use machine hardware homing instead of software positioning 
 PATTERN = "hex"             # "grid" or "hex", main circle layout
+PLANE_WIDTH = 1000
+PLANE_HEIGHT = 100
