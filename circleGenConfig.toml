@@ -6,6 +6,8 @@ ROWS_PER_WINDOW = 1         # rows of circles cut between feeder pushes
 SQUISH_ROOM = 2.0           # mm, material movement tolerance; applied at edges/seams
 
 CIRCLE_DIAMETER = 90.0      # mm, main circle diameter
+DIAMETER_OPTIONS = [80, 70, 60, 50]
+                            # mm, fallback diameters for row-end margin fillers
 
 SEVER_DISTANCE = 0.0        # mm, extra cut to fully separate circles from waste
 
@@ -41,9 +43,6 @@ Y_GAP = 2.0                 # mm, extra row-to-row spacing
 
 Y_GAP_WINDOW = 2.0          # mm, extra clearance at each window seam
 
-DIAMETER_OPTIONS = [80, 70, 60, 50]
-                            # mm, fallback diameters for row-end margin fillers
-
 FEED_RATE = 170             # mm/min, cutting speed
 TRAVEL_RATE = 600           # mm/min, non-cutting travel speed
 
@@ -78,9 +77,9 @@ BURN_OFF_TEMP = 26           # %, temperature setting for coating burn-off
 TEMP_SET_TIME = 4            # s, wait for temperature to reach target
 BURN_OFF_TIME = 10           # s, burn-off dwell time
 
-COOL_DOWN_TIME = 8            # s, general cool-down time
+COOL_DOWN_TIME = 8            # s, cool-down time from the burn-off
 COOL_DOWN_TIME_FROM_CUT_TEMP = 4
-                            # s, cool-down time when switching from cutting temperature
+                            # s, cool-down time from cutting temperature
 
 
 LEFT_CLEAN_REPEATS = 0       # number of cleaning passes on the left
@@ -88,6 +87,7 @@ RIGHT_CLEAN_REPEATS = 0      # number of cleaning passes on the right
 
 
 Y_AXIS_MAX_LIMIT = 280.0     # mm, absolute mechanical Y travel limit
+                             # doubles as a limit/parameter controlling the last push of Z axis feeder
 
 #                RELICTS FOR COMPATIBILITY
 USE_HARDWARE_HOMING = false   # use machine hardware homing instead of software positioning 
