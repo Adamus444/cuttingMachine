@@ -31,24 +31,28 @@ name = "BLOCK_WIDTH"
 label = "Szerokość materaca (mm)"
 default = 1000.0
 type = "float"
-max = 1400.0
+min = 950
+max = 1210
 
 [[variables.fields]]
 name = "ROWS_PER_WINDOW"
 label = "Ilość rzedów / pchnięcie"
 default = 1
 type = "int"
+min = 1
+max = 1
 
 [[variables.fields]]
 name = "CIRCLE_DIAMETER"
 label = "Średnica koła (mm)"
 default = 90.0
 type = "float"
+max = 100
 
 [[variables.fields]]
 name = "DIAMETER_OPTIONS"
 label = "Dostępne średnice wypełniające margines (mm, po przecinku)"
-default = "70, 50"
+default = "80, 70, 60, 50"
 type = "list"
 
 [[variables.fields]]
@@ -74,6 +78,7 @@ name = "MATERIAL_LENGTH"
 label = "Długość materaca (mm)"
 default = 2000.0
 type = "float"
+max = 2100
 
 [[variables.fields]]
 name = "LEAVE_UNCUT"
