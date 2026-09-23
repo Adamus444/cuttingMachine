@@ -1,5 +1,5 @@
 /*
-  temp_control.h - M101 heating-wire "power knob" motor control
+  temp_control.h - M101 heating-wire
   Manual addition to grbl 1.1
 */
  

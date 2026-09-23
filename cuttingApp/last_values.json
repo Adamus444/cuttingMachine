@@ -1,0 +1,16 @@
+{
+  "BLOCK_WIDTH": 1000.0,
+  "ROWS_PER_WINDOW": 1,
+  "CIRCLE_DIAMETER": 90.0,
+  "DIAMETER_OPTIONS": [
+    70,
+    60,
+    80,
+    50
+  ],
+  "FEED_RATE": 170,
+  "TRAVEL_RATE": 600,
+  "Z_FEED_RATE": 200,
+  "MATERIAL_LENGTH": 475.0,
+  "LEAVE_UNCUT": 50.0
+}

@@ -1,0 +1,6 @@
+Y_AXIS_MAX_LIMIT is used for both determining the max y and z distance, even though in reality that barrier has thickness, seperate into 2 variables
+fix soft limits for the arduino, complementing the change above, double security
+
+change the app to use circleGen8, some config changes to remove the temp control. also make really good guards for this app, the variables need to be checked
+also add the option to write over serial to grbl from the terminal in this app.
+ALSO add a window that shows at what position the grbl thinks it is

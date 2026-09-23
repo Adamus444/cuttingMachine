@@ -1,0 +1,120 @@
+[paths]
+# Folder (relative to this app's folder, or a full path) where
+# ready-to-cut .gcode files live, and where newly generated files
+# will be saved.
+gcode_folder = "gcode_files"
+
+[serial]
+# Default baud rate for the cutting machine.
+baud_rate = 115200
+
+[machine]
+# G-code sent when the "Home Machine" button is pressed.
+homing_command = "$H"
+
+# Note: the "STOP" button does NOT use a G-code line - it sends a ctr+x or smth,
+# a real time emergency byte
+
+# ============================================================
+#  Cutting parameters shown in the app's table.
+#
+#  name    -> must exactly match an ALL_CAPS variable 
+#  label   -> what the operator sees in the table
+#  default -> starting value shown in the table
+#  type    -> "float", "int", "bool", "text", or "list" (comma-separated
+#             numbers, e.g. "70, 50" -> [70, 50])
+#
+# ============================================================
+
+[[variables.fields]]
+name = "BLOCK_WIDTH"
+label = "Szerokość materaca (mm)"
+default = 1000.0
+type = "float"
+max = 1400.0
+
+[[variables.fields]]
+name = "ROWS_PER_WINDOW"
+label = "Ilość rzedów / pchnięcie"
+default = 1
+type = "int"
+
+[[variables.fields]]
+name = "CIRCLE_DIAMETER"
+label = "Średnica koła (mm)"
+default = 90.0
+type = "float"
+
+[[variables.fields]]
+name = "DIAMETER_OPTIONS"
+label = "Dostępne średnice wypełniające margines (mm, po przecinku)"
+default = "70, 50"
+type = "list"
+
+[[variables.fields]]
+name = "FEED_RATE"
+label = "Prędkość cięcia (mm/min)"
+default = 170
+type = "int"
+
+[[variables.fields]]
+name = "TRAVEL_RATE"
+label = "Prędkość przejazdu przez powietrze (mm/min)"
+default = 400
+type = "int"
+
+[[variables.fields]]
+name = "Z_FEED_RATE"
+label = "Prędkość osi Z (mm/min)"
+default = 150
+type = "int"
+
+[[variables.fields]]
+name = "MATERIAL_LENGTH"
+label = "Długość materaca (mm)"
+default = 2000.0
+type = "float"
+
+[[variables.fields]]
+name = "LEAVE_UNCUT"
+label = "Zostawić niepocięte (mm)"
+default = 300.0
+type = "float"
+
+
+
+# [[variables.fields]]
+# name = "CUTTING_TEMP"
+# label = "Temperatura cięcia"
+# default = 10.0
+# type = "float"
+
+# [[variables.fields]]
+# name = "BURN_OFF_TEMP"
+# label = "Temperatura wypalania"
+# default = 25
+# type = "float"
+
+# [[variables.fields]]
+# name = "TEMP_SET_TIME"
+# label = "Czas ustawienia temperatury cięcia"
+# default = 4
+# type = "float"
+
+# [[variables.fields]]
+# name = "BURN_OFF_TIME"
+# label = "Czas ustawienia temperatury wypalania"
+# default = 10
+# type = "float"
+
+# [[variables.fields]]
+# name = "COOL_DOWN_TIME"
+# label = "Czas wychłodzenia się po wypalaniu"
+# default = 8
+# type = "float"
+
+# [[variables.fields]]
+# name = "COOL_DOWN_TIME_FROM_CUT_TEMP"
+# label = "Czas wychłodzenia się po cięciu"
+# default = 4
+# type = "float"
