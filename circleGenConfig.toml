@@ -1,6 +1,6 @@
 [settings]
 
-BLOCK_WIDTH = 1000.0        # mm, full width of the foam block (X)
+BLOCK_WIDTH = 990.0        # mm, full width of the foam block (X)
 ROWS_PER_WINDOW = 1         # rows of circles cut between feeder pushes
  
 SQUISH_ROOM = 2.0           # mm, material movement tolerance; applied at edges/seams
@@ -57,9 +57,9 @@ SINGLE_WINDOW_ONLY = false
 
 RAIL_LENGTH = 2131.646      # mm, distance between Y0 and Z0 home switches
 
-MATERIAL_LENGTH = 475.0    # mm, total stock length
+MATERIAL_LENGTH = 1525.0    # mm, total stock length
 
-LEAVE_UNCUT = 30             # mm, stop feeding when this much material remains
+LEAVE_UNCUT = 10             # mm, stop feeding when this much material remains
 
 Z_FEED_RATE = 200            # mm/min, feeder speed
 
