@@ -5,7 +5,7 @@ ROWS_PER_WINDOW = 1         # rows of circles cut between feeder pushes
  
 SQUISH_ROOM = 2.0           # mm, material movement tolerance; applied at edges/seams
 
-CIRCLE_DIAMETER = 90.0      # mm, main circle diameter
+CIRCLE_DIAMETER = 89.0      # mm, main circle diameter
 DIAMETER_OPTIONS = [80, 70, 60, 50]
                             # mm, fallback diameters for row-end margin fillers
 
@@ -59,7 +59,7 @@ RAIL_LENGTH = 2131.646      # mm, distance between Y0 and Z0 home switches
 
 MATERIAL_LENGTH = 1525.0    # mm, total stock length
 
-LEAVE_UNCUT = 10             # mm, stop feeding when this much material remains
+LEAVE_UNCUT = 0             # mm, stop feeding when this much material remains
 
 Z_FEED_RATE = 200            # mm/min, feeder speed
 
@@ -87,8 +87,8 @@ RIGHT_CLEAN_REPEATS = 0      # number of cleaning passes on the right
 
 
 Y_AXIS_MAX_LIMIT = 280.0     # mm, absolute mechanical Y travel limit
-                             # doubles as a limit/parameter controlling the last push of Z axis feeder
-
+                             
+MAX_Z_PUSH = 1839.0          # mm, limits the number of windows 
 #-------------------RELICTS FOR COMPATIBILITY-------------------------------------
 USE_HARDWARE_HOMING = false   # use machine hardware homing instead of software positioning 
 PATTERN = "hex"             # "grid" or "hex", main circle layout

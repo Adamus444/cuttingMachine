@@ -40,7 +40,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-import circleGen8_0 as generator
+import circleGen8_1 as generator
 
 def generate_gcode(values: dict, output_path: str) -> dict:
     """
