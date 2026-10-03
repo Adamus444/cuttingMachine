@@ -58,9 +58,9 @@ def generate_gcode(values: dict, output_path: str) -> dict:
     for name, value in values.items():
         if not hasattr(generator, name):
             raise ValueError(
-                f"'{name}' is not a variable in circleGen6_2.py. Check the "
+                f"'{name}' is not a variable in circleGen. Check the "
                 f"spelling in the app configuration against the ALL_CAPS variable "
-                f"names supported by circleGen6_2.py."
+                f"names supported by circleGen."
             )
         setattr(generator, name, value)
 

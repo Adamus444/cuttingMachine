@@ -1,0 +1,65 @@
+[settings]
+RECT_WIDTH  = 200.0     # mm, X size of one rectangle
+RECT_HEIGHT = 120.0     # mm, Y size of one rectangle
+
+BLOCK_WIDTH = 1010.0        # mm, full width of the foam block (X)
+ROWS_PER_WINDOW = 1    # rows cut between two feeder pushes
+
+SQUISH_ROOM = 2.0           # mm, material movement tolerance; applied at edges/seams
+
+CUT_OFF_MARGIN = 40.0       # mm, extra length for the final right-edge cut
+
+RECTS_PER_CLEAN = 4       # rects per sweep before an in-place wire cleaning
+                            # Set 0 to disable periodic cleaning
+# X_GAP = 0.0                 # mm, extra clearance between main circles
+
+# Y_GAP = 2.0                 # mm, extra row-to-row spacing
+
+Y_GAP_WINDOW = 2.0          # mm, extra clearance at each window seam
+
+FEED_RATE = 170             # mm/min, cutting speed
+TRAVEL_RATE = 600           # mm/min, non-cutting travel speed
+
+ORIGIN_X = 10.0             # mm, window bottom-left X offset
+ORIGIN_Y = 130.0            # mm, window bottom-left Y offset
+
+OUTPUT_FILE = "rects.gcode"
+
+
+SINGLE_WINDOW_ONLY = false
+                            # Generate one window only; disables feeder moves and repeated homing
+
+RAIL_LENGTH = 2131.646      # mm, distance between Y0 and Z0 home switches
+
+MATERIAL_LENGTH = 1525.0    # mm, total stock length
+
+LEAVE_UNCUT = 0             # mm, stop feeding when this much material remains
+
+Z_FEED_RATE = 200            # mm/min, feeder speed
+
+
+SAFETY_BURN_OFF_X_DISTANCE = 1050.0
+                            # mm, X position used for the regular right-side wire burn-off
+
+SAFETY_BURN_OFF_Y_DISTANCE = 30.0
+                            # mm, Y distance moved during wire burn-off
+
+
+CUTTING_TEMP = 10            # %, temperature setting while cutting
+BURN_OFF_TEMP = 26           # %, temperature setting for coating burn-off
+
+TEMP_SET_TIME = 4            # s, wait for temperature to reach target
+BURN_OFF_TIME = 10           # s, burn-off dwell time
+
+COOL_DOWN_TIME = 8            # s, cool-down time from the burn-off
+COOL_DOWN_TIME_FROM_CUT_TEMP = 4
+                            # s, cool-down time from cutting temperature
+
+
+LEFT_CLEAN_REPEATS = 0       # number of cleaning passes on the left
+RIGHT_CLEAN_REPEATS = 0      # number of cleaning passes on the right
+
+
+Y_AXIS_MAX_LIMIT = 280.0     # mm, absolute mechanical Y travel limit
+                             
+MAX_Z_PUSH = 1839.0          # mm, limits the number of windows 

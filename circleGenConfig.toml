@@ -52,6 +52,8 @@ ORIGIN_Y = 160.0            # mm, window bottom-left Y offset
 OUTPUT_FILE = "circles.gcode"
 
 
+
+
 SINGLE_WINDOW_ONLY = false
                             # Generate one window only; disables feeder moves and repeated homing
 
